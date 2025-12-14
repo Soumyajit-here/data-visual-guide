@@ -96,9 +96,14 @@
             letter-spacing: 0.5px;
         }
 
-        .btn:hover {
+        .btn:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .dashboard {
@@ -185,6 +190,7 @@
             text-align: center;
             font-size: 0.9rem;
             line-height: 1.4;
+            overflow-x: auto;
         }
 
         @media (max-width: 768px) {
@@ -199,6 +205,15 @@
             
             .header h1 {
                 font-size: 2rem;
+            }
+
+            .control-group label {
+                min-width: auto;
+            }
+
+            .control-group input,
+            .control-group select {
+                width: 100%;
             }
         }
 
@@ -224,12 +239,22 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 2rem;
+            display: none;
+            border-left: 4px solid #dc2626;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Data Visualization Dashboard</h1>
+            <h1>📊 Data Visualization Dashboard</h1>
             <p>Interactive mathematical computations with dynamic visualizations</p>
         </div>
         
@@ -250,9 +275,11 @@
                 <label for="amplitude">Amplitude:</label>
                 <input type="number" id="amplitude" value="1" min="0.1" max="10" step="0.1">
                 
-                <button class="btn" onclick="generateData()">Generate New Data</button>
+                <button class="btn" id="generateBtn" onclick="generateData()">Generate New Data</button>
             </div>
         </div>
+
+        <div class="error-message" id="errorMessage"></div>
 
         <div class="loading">
             <div class="spinner"></div>
@@ -302,229 +329,363 @@
 
         // Initialize charts
         function initCharts() {
-            // Line Chart
-            const lineCtx = document.getElementById('lineChart').getContext('2d');
-            lineChart = new Chart(lineCtx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Function Values',
-                        data: [],
-                        borderColor: 'rgb(79, 70, 229)',
-                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                        tension: 0.4,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
+            try {
+                // Line Chart
+                const lineCtx = document.getElementById('lineChart').getContext('2d');
+                lineChart = new Chart(lineCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Function Values',
+                            data: [],
+                            borderColor: 'rgb(79, 70, 229)',
+                            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 0,
+                            borderWidth: 2
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            grid: {
-                                color: '#f3f4f6'
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
                             }
                         },
-                        x: {
-                            grid: {
-                                color: '#f3f4f6'
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                grid: {
+                                    color: '#f3f4f6'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    color: '#f3f4f6'
+                                },
+                                ticks: {
+                                    maxTicksLimit: 10
+                                }
                             }
+                        },
+                        interaction: {
+                            mode: 'nearest',
+                            axis: 'x',
+                            intersect: false
                         }
                     }
-                }
-            });
+                });
 
-            // Bar Chart
-            const barCtx = document.getElementById('barChart').getContext('2d');
-            barChart = new Chart(barCtx, {
-                type: 'bar',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Distribution',
-                        data: [],
-                        backgroundColor: 'rgba(16, 185, 129, 0.8)',
-                        borderColor: 'rgb(16, 185, 129)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
+                // Bar Chart
+                const barCtx = document.getElementById('barChart').getContext('2d');
+                barChart = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Distribution',
+                            data: [],
+                            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                            borderColor: 'rgb(16, 185, 129)',
+                            borderWidth: 1
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: '#f3f4f6'
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Count: ' + context.parsed.y;
+                                    }
+                                }
                             }
                         },
-                        x: {
-                            grid: {
-                                color: '#f3f4f6'
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: '#f3f4f6'
+                                },
+                                ticks: {
+                                    precision: 0
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    color: '#f3f4f6'
+                                }
                             }
                         }
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error('Error initializing charts:', error);
+                showError('Failed to initialize charts. Please refresh the page.');
+            }
         }
 
-        // Generate mathematical data using math.js (NumPy-like operations)
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Generate mathematical data using math.js
         function generateData() {
             const loading = document.querySelector('.loading');
-            loading.style.display = 'block';
+            const generateBtn = document.getElementById('generateBtn');
             
-            setTimeout(() => {
-                const size = parseInt(document.getElementById('dataSize').value);
-                const func = document.getElementById('function').value;
-                const amplitude = parseFloat(document.getElementById('amplitude').value);
+            try {
+                loading.style.display = 'block';
+                generateBtn.disabled = true;
                 
-                // Generate x values (like numpy.linspace)
-                const xValues = math.range(0, 4 * Math.PI, 4 * Math.PI / size).toArray();
-                let yValues = [];
-                
-                // Apply selected function (using math.js for NumPy-like functionality)
-                xValues.forEach(x => {
-                    let y;
-                    switch(func) {
-                        case 'sin':
-                            y = amplitude * Math.sin(x);
-                            break;
-                        case 'cos':
-                            y = amplitude * Math.cos(x);
-                            break;
-                        case 'tan':
-                            y = amplitude * Math.tan(x);
-                            y = Math.max(-10, Math.min(10, y)); // Clamp values
-                            break;
-                        case 'polynomial':
-                            y = amplitude * (0.1 * x * x - 0.5 * x + 1);
-                            break;
-                        case 'exponential':
-                            y = amplitude * Math.exp(-x/4) * Math.sin(x);
-                            break;
+                setTimeout(() => {
+                    try {
+                        const size = parseInt(document.getElementById('dataSize').value);
+                        const func = document.getElementById('function').value;
+                        const amplitude = parseFloat(document.getElementById('amplitude').value);
+                        
+                        // Validate inputs
+                        if (isNaN(size) || size < 10 || size > 1000) {
+                            throw new Error('Data size must be between 10 and 1000');
+                        }
+                        if (isNaN(amplitude) || amplitude <= 0) {
+                            throw new Error('Amplitude must be a positive number');
+                        }
+                        
+                        // Generate x values (like numpy.linspace)
+                        const xValues = math.range(0, 4 * Math.PI, 4 * Math.PI / size).toArray();
+                        let yValues = [];
+                        
+                        // Apply selected function
+                        xValues.forEach(x => {
+                            let y;
+                            switch(func) {
+                                case 'sin':
+                                    y = amplitude * Math.sin(x);
+                                    break;
+                                case 'cos':
+                                    y = amplitude * Math.cos(x);
+                                    break;
+                                case 'tan':
+                                    y = amplitude * Math.tan(x);
+                                    // Clamp extreme values for tangent
+                                    y = Math.max(-10, Math.min(10, y));
+                                    break;
+                                case 'polynomial':
+                                    y = amplitude * (0.1 * x * x - 0.5 * x + 1);
+                                    break;
+                                case 'exponential':
+                                    y = amplitude * Math.exp(-x/4) * Math.sin(x);
+                                    break;
+                                default:
+                                    y = amplitude * Math.sin(x);
+                            }
+                            yValues.push(y);
+                        });
+                        
+                        // Filter out any NaN or Infinity values
+                        yValues = yValues.map(v => (isFinite(v) ? v : 0));
+                        
+                        currentData = yValues;
+                        
+                        // Update charts
+                        updateCharts(xValues, yValues);
+                        
+                        // Calculate statistics
+                        updateStatistics(yValues);
+                        
+                        // Perform matrix operations
+                        performMatrixOperations(yValues);
+                        
+                    } catch (error) {
+                        console.error('Error generating data:', error);
+                        showError(error.message || 'Error generating data. Please try again.');
+                    } finally {
+                        loading.style.display = 'none';
+                        generateBtn.disabled = false;
                     }
-                    yValues.push(y);
-                });
-                
-                currentData = yValues;
-                
-                // Update charts
-                updateCharts(xValues, yValues);
-                
-                // Calculate statistics (NumPy-like operations using math.js)
-                updateStatistics(yValues);
-                
-                // Perform matrix operations
-                performMatrixOperations(yValues);
-                
+                }, 500);
+            } catch (error) {
+                console.error('Error in generateData:', error);
                 loading.style.display = 'none';
-            }, 500);
+                generateBtn.disabled = false;
+                showError('An unexpected error occurred. Please try again.');
+            }
         }
 
         // Update charts with new data
         function updateCharts(xValues, yValues) {
-            // Update line chart
-            lineChart.data.labels = xValues.map((x, i) => i % 5 === 0 ? x.toFixed(1) : '');
-            lineChart.data.datasets[0].data = yValues;
-            lineChart.update();
-            
-            // Create histogram for bar chart
-            const bins = 10;
-            const min = Math.min(...yValues);
-            const max = Math.max(...yValues);
-            const binWidth = (max - min) / bins;
-            
-            const histogram = new Array(bins).fill(0);
-            const binLabels = [];
-            
-            for (let i = 0; i < bins; i++) {
-                binLabels.push((min + i * binWidth).toFixed(2));
+            try {
+                // Update line chart with better label selection
+                const labelStep = Math.max(1, Math.floor(xValues.length / 10));
+                lineChart.data.labels = xValues.map((x, i) => 
+                    i % labelStep === 0 ? x.toFixed(2) : ''
+                );
+                lineChart.data.datasets[0].data = yValues;
+                lineChart.update('none'); // Update without animation for better performance
+                
+                // Create histogram for bar chart
+                const bins = 10;
+                const min = Math.min(...yValues.filter(isFinite));
+                const max = Math.max(...yValues.filter(isFinite));
+                const binWidth = (max - min) / bins || 1; // Prevent division by zero
+                
+                const histogram = new Array(bins).fill(0);
+                const binLabels = [];
+                
+                for (let i = 0; i < bins; i++) {
+                    const binStart = min + i * binWidth;
+                    binLabels.push(binStart.toFixed(2));
+                }
+                
+                yValues.forEach(value => {
+                    if (isFinite(value)) {
+                        const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1);
+                        if (binIndex >= 0 && binIndex < bins) {
+                            histogram[binIndex]++;
+                        }
+                    }
+                });
+                
+                barChart.data.labels = binLabels;
+                barChart.data.datasets[0].data = histogram;
+                barChart.update('none');
+            } catch (error) {
+                console.error('Error updating charts:', error);
+                showError('Error updating charts. Please try again.');
             }
-            
-            yValues.forEach(value => {
-                const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1);
-                histogram[binIndex]++;
-            });
-            
-            barChart.data.labels = binLabels;
-            barChart.data.datasets[0].data = histogram;
-            barChart.update();
         }
 
-        // Calculate and display statistics (NumPy-like operations)
+        // Calculate and display statistics
         function updateStatistics(data) {
-            // Use math.js for statistical calculations
-            const mean = math.mean(data);
-            const std = math.std(data);
-            const max = math.max(data);
-            const min = math.min(data);
-            
-            document.getElementById('meanValue').textContent = mean.toFixed(3);
-            document.getElementById('stdValue').textContent = std.toFixed(3);
-            document.getElementById('maxValue').textContent = max.toFixed(3);
-            document.getElementById('minValue').textContent = min.toFixed(3);
+            try {
+                // Filter out non-finite values
+                const validData = data.filter(isFinite);
+                
+                if (validData.length === 0) {
+                    throw new Error('No valid data points');
+                }
+                
+                // Use math.js for statistical calculations
+                const mean = math.mean(validData);
+                const std = math.std(validData);
+                const max = math.max(validData);
+                const min = math.min(validData);
+                
+                document.getElementById('meanValue').textContent = mean.toFixed(3);
+                document.getElementById('stdValue').textContent = std.toFixed(3);
+                document.getElementById('maxValue').textContent = max.toFixed(3);
+                document.getElementById('minValue').textContent = min.toFixed(3);
+            } catch (error) {
+                console.error('Error calculating statistics:', error);
+                showError('Error calculating statistics.');
+            }
         }
 
-        // Perform matrix operations (NumPy-like functionality)
+        // Perform matrix operations
         function performMatrixOperations(data) {
             try {
+                // Filter valid data
+                const validData = data.filter(isFinite);
+                
+                if (validData.length < 4) {
+                    document.getElementById('matrixResult').textContent = 
+                        'Insufficient data for matrix operations. Need at least 4 valid data points.';
+                    return;
+                }
+                
                 // Create a matrix from the data
-                const size = Math.min(4, Math.floor(Math.sqrt(data.length)));
-                const matrixData = data.slice(0, size * size);
+                const size = Math.min(4, Math.floor(Math.sqrt(validData.length)));
+                const matrixData = validData.slice(0, size * size);
                 const matrix = math.reshape(matrixData, [size, size]);
                 
                 // Perform matrix operations
                 const transpose = math.transpose(matrix);
-                const determinant = math.det(matrix);
+                let determinant;
+                try {
+                    determinant = math.det(matrix);
+                } catch (e) {
+                    determinant = 'N/A (singular matrix)';
+                }
                 
-                // Create covariance-like matrix
-                const covMatrix = math.multiply(matrix, transpose);
+                // Create matrix multiplication result
+                const productMatrix = math.multiply(matrix, transpose);
                 
-                let result = `Original ${size}x${size} Matrix:\n`;
+                let result = `Original ${size}×${size} Matrix:\n`;
                 result += formatMatrix(matrix);
                 result += `\n\nTranspose:\n`;
                 result += formatMatrix(transpose);
-                result += `\n\nDeterminant: ${determinant.toFixed(4)}`;
+                result += `\n\nDeterminant: ${typeof determinant === 'number' ? determinant.toFixed(4) : determinant}`;
                 result += `\n\nMatrix × Transpose:\n`;
-                result += formatMatrix(covMatrix);
+                result += formatMatrix(productMatrix);
                 
                 document.getElementById('matrixResult').textContent = result;
             } catch (error) {
-                document.getElementById('matrixResult').textContent = 'Matrix operations require sufficient data points.';
+                console.error('Error in matrix operations:', error);
+                document.getElementById('matrixResult').textContent = 
+                    'Error performing matrix operations: ' + error.message;
             }
         }
 
         // Format matrix for display
         function formatMatrix(matrix) {
-            if (Array.isArray(matrix[0])) {
-                return matrix.map(row => 
-                    row.map(val => val.toFixed(2).padStart(8)).join(' ')
-                ).join('\n');
-            } else {
-                return matrix.map(val => val.toFixed(2).padStart(8)).join(' ');
+            try {
+                if (Array.isArray(matrix) && Array.isArray(matrix[0])) {
+                    return matrix.map(row => 
+                        row.map(val => {
+                            const numVal = parseFloat(val);
+                            return (isFinite(numVal) ? numVal.toFixed(2) : '0.00').padStart(8);
+                        }).join(' ')
+                    ).join('\n');
+                } else if (Array.isArray(matrix)) {
+                    return matrix.map(val => {
+                        const numVal = parseFloat(val);
+                        return (isFinite(numVal) ? numVal.toFixed(2) : '0.00').padStart(8);
+                    }).join(' ');
+                }
+                return String(matrix);
+            } catch (error) {
+                console.error('Error formatting matrix:', error);
+                return 'Error formatting matrix';
             }
         }
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
-            initCharts();
-            generateData();
+            try {
+                initCharts();
+                generateData();
+            } catch (error) {
+                console.error('Error initializing application:', error);
+                showError('Failed to initialize application. Please refresh the page.');
+            }
         });
 
         // Handle window resize
         window.addEventListener('resize', function() {
-            if (lineChart) lineChart.resize();
-            if (barChart) barChart.resize();
+            try {
+                if (lineChart) lineChart.resize();
+                if (barChart) barChart.resize();
+            } catch (error) {
+                console.error('Error resizing charts:', error);
+            }
         });
     </script>
 </body>
